@@ -1,0 +1,113 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# فایل‌های کش
+.cache/
+dist/
+build/
+tmp/
+temp/
+
+# خروجی‌ها یا فایل‌های اجرای موقتی
+*.out
+*.pid
+*.gz
+
+# پایگاه‌داده لوکال یا بک‌آپ
+*.sqlite
+*.db
+*.bak
+dump.sql
+
+
+# ============================
+# عمومی و نود
+# ============================
+node_modules/
+.env
+.env.*
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# خروجی‌ها و فایل‌های اجرایی موقتی
+dist/
+build/
+.cache/
+temp/
+tmp/
+*.out
+*.pid
+*.gz
+
+# دیتابیس لوکال یا فایل‌های بک‌آپ
+*.sqlite
+*.db
+*.bak
+dump.sql
+
+# ============================
+# فرانت‌اند (React, Vite, Next)
+# ============================
+.vite/
+.next/
+out/
+coverage/
+storybook-static/
+cypress/videos/
+cypress/screenshots/
+public/static/
+.eslintcache
+.prettiercache
+*.tsbuildinfo
+
+# Yarn Berry
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+
+# GitHub Codespaces
+.devcontainer/
+
+# ============================
+# مخصوص Windows/Linux/Mac
+# ============================
+Thumbs.db
+ehthumbs.db
+Icon?
+Desktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msm
+*.msp
+*.lnk

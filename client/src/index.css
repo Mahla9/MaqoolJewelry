@@ -1,0 +1,76 @@
+@import "tailwindcss";
+
+
+@theme{
+  --color-navyBlue-100: #1B2748;
+  --color-navyBlue-200: #0B0F2B;
+  --color-lavender-300: #5e93d2;
+  --color-lavender-400: #3562B6;
+  --color-lavender-500: #5a8cd8; /* Adding a new color variable */
+  --color-custom-silver: #DADADA;
+}
+
+@layer utilities {
+  @keyframes rotate360 {
+    0% {
+      transform: translate(-50%, -50%) rotateY(0deg);
+    }
+    100% {
+      transform: translate(-50%, -50%) rotateY(360deg);
+    }
+  }
+
+  .animate-rotate3d {
+    animation: rotate360 79s linear infinite;
+    transform-style: preserve-3d;
+  }
+
+  .perspective-1000 {
+    perspective: 1000px;
+  }
+}
+
+
+
+@layer components{
+  .container{
+    @apply mx-auto px-4 lg:px-2.5
+  }
+  .active-tab{
+    @apply text-white bg-navyBlue-200 font-semibold rounded-md p-3
+  }
+  .toggle-box::before{
+    content: '';
+    position: absolute;
+    left: -250%;
+    width: 300%;
+    height: 100%;
+    background: #0B0F2B;
+    /* border: 2px solid red; */
+    border-radius: 150px;
+    /* z-index: 2; */
+    transition: 1s ease-in-out;
+  }
+  .toggle-box.active::before{
+    left: 50%;
+  }
+  @media screen and (max-width: 768px) {
+    .toggle-box::before {
+      border-radius: 90px;
+      left:auto;
+      width:100%;
+      height:300%;
+      top:-260%;
+    }
+    .toggle-box.active::before{
+      left: auto;
+      top:60%;
+    }
+  }
+  
+}
+
+input:focus{
+  outline: none;
+}
+
