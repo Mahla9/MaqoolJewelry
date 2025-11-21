@@ -1,5 +1,5 @@
+@layer theme, base, antd, components, utilities;
 @import "tailwindcss";
-
 
 @theme{
   --color-navyBlue-100: #1B2748;

@@ -1,22 +1,12 @@
-import React from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useLogin } from '../api/useAuth';
 import useAuthStore from '../store/useAuthStore';
-import {toast} from "react-toastify";
-import * as yup from 'yup';
-import { yupResolver } from '@hookform/resolvers/yup';
-import { useForm } from 'react-hook-form';
-
-const schema = yup.object().shape({
-    username: yup.string().required("نام کاربری الزامی است"),
-    password: yup.string().required("رمز عبور الزامی است")
-});
+import { Button, Form, message } from 'antd';
 
 function Login() {
     const navigate = useNavigate();
     const postUser = useLogin();
     const login = useAuthStore(state=>state.login);
-    const {register, handleSubmit, formState:{errors}} = useForm({resolver: yupResolver(schema)});
 
     const onSubmit = async (values) => {
         try {
@@ -27,36 +17,38 @@ function Login() {
             login(userData, token);
 
             // نمایش پیام موفقیت و هدایت کاربر
-            toast.success(message);
+            message.success(message);
             navigate(redirect);
         } catch (error) {
             const errorMessage = error.response?.data?.message || 'خطا در ارتباط با سرور';
-            toast.error(errorMessage);
+            message.error(errorMessage);
             console.error( errorMessage);
         }
     }
-  return (
+    return (
     <>
-    <form onSubmit={handleSubmit(onSubmit)} dir='rtl' className='flex flex-col gap-3 md:gap-6'>
-        <div className='flex flex-col'>
-            <label htmlFor="username" className='text-xs font-semibold md:text-base text-navyBlue-100 pr-2 pb-1'>نام کاربری:</label>
-            <input {...register('username')} type="text" id='username' className='border border-navyBlue-100 rounded-full h-8 md:h-10 px-3 md:px-8 focus:outline-none' />
-            {errors.username && <p className='text-red-400 text-xs font-sans'>{errors.username.message}</p>}
-        </div>
-        <div className='flex flex-col'>
-            <label htmlFor="password" className='text-xs font-semibold md:text-base text-navyBlue-100 pr-2 pb-1'>پسورد:</label>
-            <input {...register('password')} type="password" id='password' className='border border-navyBlue-100 rounded-full h-8 md:h-10 px-3 md:px-8 focus:outline-none' />
-            {errors.password && <p className='text-red-400 text-xs font-sans'>{errors.password.message}</p>}
-        </div>
-        <button className={`rounded-full mt-2 h-10 text-white cursor-pointer bg-gradient-to-r  transition-all duration-200 ease-in hover:bg-gradient-to-l ${postUser.isPending? "from-navyBlue-100/50 to-navyBlue-200/50" : "from-navyBlue-100 to-navyBlue-200"}`} type='submit' disabled= {postUser.isPending}>
-            {postUser.isPending && (
-                <span className="inline-block w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
-            )}
-            {postUser.isPending ? "در حال ورود..." : "ورود"}
-        </button>
-    </form>
+        <Form onFinish={onSubmit} dir='rtl' className='flex flex-col gap-3 md:gap-6'>
+            <Form.Item label='نام کاربری' labelCol={{ span: 24 }} 
+            className='text-xs font-semibold md:text-base text-navyBlue-100 pr-2 pb-1'
+            rules={[ { required: true, message: 'لطفا نام کاربری را وارد کنید' }]} name="username"
+            >
+                <Input/>
+            </Form.Item>
 
-    <Link to={'/forgot-password'} className='text-xs font-semibold text-navyBlue-100 mt-2'>فراموشی رمز عبور؟</Link>
+            <Form.Item label='پسورد' labelCol={{ span: 24 }} 
+            className='text-xs font-semibold md:text-base text-navyBlue-100 pr-2 pb-1'
+            hasFeedback
+            rules={[ { required: true, message: 'لطفا پسورد را وارد کنید' },{pattern: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/, message: 'Password must contain uppercase, lowercase, number, and be at least 8 characters'}]} name="password"
+            >
+                <Input.Password/>
+            </Form.Item>
+
+            <Button htmlType='submit' loading={postUser.isPending} className={` text-white cursor-pointer bg-gradient-to-r  transition-all duration-200 ease-in hover:bg-gradient-to-l ${postUser.isPending? "from-navyBlue-100/50 to-navyBlue-200/50" : "from-navyBlue-100 to-navyBlue-200"}`} type='submit' disabled= {postUser.isPending}>
+                {postUser.isPending ? "در حال ورود..." : "ورود"}
+            </Button>
+        </Form>
+
+        <Link to={'/forgot-password'} className='text-xs font-semibold text-navyBlue-100 mt-2'>فراموشی رمز عبور؟</Link>
     </>
   )
 }

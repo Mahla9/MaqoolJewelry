@@ -1,4 +1,4 @@
-import React from 'react';
+import  { memo } from 'react';
 import { Heart } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import useCartStore from '../store/useCartStore';
@@ -24,4 +24,4 @@ function ProductCard({product}) {
   )
 }
 
-export default ProductCard
+export default memo(ProductCard);

@@ -6,8 +6,13 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import axios from 'axios';
+import rateLimit from 'express-rate-limit';
+import csurf from 'csurf';
+import cookieParser from 'cookie-parser';
+import mongoSanitize from 'express-mongo-sanitize';
+import hpp from 'hpp';
 
+// Routes
 import wishlistRoutes from './routes/wishlistRoutes.js';
 import cartRoutes from './routes/cartRoutes.js';
 import orderRoutes from './routes/orderRoutes.js';
@@ -17,79 +22,124 @@ import adminRoutes from "./routes/adminRoutes.js";
 import shippingAddressRoutes from './routes/shippingAddressRoutes.js';
 import silverRoutes from './routes/silverRoutes.js';
 
-import rateLimit from 'express-rate-limit';
-import csurf from 'csurf';
-import cookieParser from 'cookie-parser';
-
-
 const app = express();
-
 
 dotenv.config();
 
-// ✅ اتصال به دیتابیس
+// اتصال به دیتابیس با تنظیمات بهینه
 mongoose
-  .connect(process.env.MONGODB_URI)
-  .then(() => console.log('✅ MongoDB connected'))
-  .catch((err) => console.error('❌ MongoDB connection error:', err));
-
-// ✅ Middlewareهای پایه امنیتی و منطقی
-app.use(express.json());
-app.use(cors({ origin: 'http://localhost:3000', credentials: true }));
-app.use(helmet({
-  contentSecurityPolicy: false, // اگر نیاز به بارگذاری منابع خارجی دارید
-}));
-app.use(morgan('dev'));
-app.use(rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
-}));
-app.use(cookieParser());
-app.use(express.json({ limit: '10kb' }));
-
-// برای پست داده های حاوی فایل
-app.use('/uploads', (req, res, next) => {
-  res.header('Access-Control-Allow-Origin', 'http://localhost:3000');
-  next();
-}, express.static('uploads'));
-
-// Middleware برای CSRF
-app.use(
-  csurf({
-    cookie: {
-      httpOnly: true, // فقط از طریق HTTP قابل دسترسی است
-      secure: false,
-      sameSite: "lax", // جلوگیری از ارسال کوکی به دامنه‌های دیگر
-    },
+  .connect(process.env.MONGODB_URI, {
+    maxPoolSize: 10,
+    serverSelectionTimeoutMS: 5000,
+    socketTimeoutMS: 45000,
   })
-);
-// محدود کردن تعداد تلاش های ورود
+  .then(() => console.log('✅ MongoDB connected'))
+  .catch((err) => {
+    console.error('❌ MongoDB connection error:', err);
+    process.exit(1);
+  });
+
+// Trust proxy (برای استفاده پشت nginx/reverse proxy)
+app.set('trust proxy', 1);
+
+// امنیت Headers
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:"],
+    },
+  },
+  hsts: {
+    maxAge: 31536000,
+    includeSubDomains: true,
+    preload: true
+  }
+}));
+
+// CORS با تنظیمات امن
+app.use(cors({ 
+  origin: process.env.CLIENT_URL || 'http://localhost:3000',
+  credentials: true,
+  optionsSuccessStatus: 200
+}));
+
+// Body Parser با محدودیت حجم
+app.use(express.json({ limit: '10kb' }));
+app.use(express.urlencoded({ extended: true, limit: '10kb' }));
+
+// Cookie Parser
+app.use(cookieParser());
+
+// Data Sanitization against NoSQL injection
+app.use(mongoSanitize());
+
+// Prevent HTTP Parameter Pollution
+app.use(hpp());
+
+// Rate Limiting عمومی
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  message: 'تعداد درخواست‌ها بیش از حد است',
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use(limiter);
+
+// Rate Limiting برای ورود
 const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 دقیقه
-  max: 5, // حداکثر 5 تلاش
-  message: "تعداد تلاش‌های ورود بیش از حد است. لطفاً بعداً دوباره تلاش کنید.",
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  message: "تعداد تلاش‌های ورود بیش از حد است",
+  skipSuccessfulRequests: true,
 });
 app.use('/api/user/login', loginLimiter);
 
+// Rate Limiting برای ثبت‌نام
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 3,
+  message: "تعداد درخواست‌های ثبت‌نام بیش از حد است",
+});
+app.use('/api/user/register', registerLimiter);
 
-// مسیر برای دریافت CSRF Token
+// Logging
+if (process.env.NODE_ENV === 'development') {
+  app.use(morgan('dev'));
+} else {
+  app.use(morgan('combined'));
+}
+
+// Static Files
+app.use('/uploads', express.static('uploads', {
+  maxAge: '1d',
+  setHeaders: (res, path) => {
+    if (path.endsWith('.jpg') || path.endsWith('.png') || path.endsWith('.webp')) {
+      res.setHeader('Cache-Control', 'public, max-age=86400');
+    }
+  }
+}));
+
+// CSRF Protection
+app.use(csurf({
+  cookie: {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'strict',
+  },
+}));
+
+// CSRF Token endpoint
 app.get("/api/csrf-token", (req, res) => {
   res.json({ csrfToken: req.csrfToken() });
 });
 
-app.use((err, req, res, next) => {
-  if (err.code === "EBADCSRFTOKEN") {
-    return res.status(403).json({ message: "توکن CSRF نامعتبر است." });
-  }
-  if (err.name === 'ValidationError') {
-    return res.status(400).json({ message: err.errors[0] });
-  }
-  next(err);
-});
-
-// ✅ API Routes
-app.use("/api/admin", adminRoutes);      // فقط برای ادمین‌ها
-app.use('/api/user', userRoutes); // مسیرهای عمومی و محافظت‌شده
+// API Routes
+app.use("/api/admin", adminRoutes);
+app.use('/api/user', userRoutes);
 app.use('/api/wishlist', wishlistRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/orders', orderRoutes);
@@ -97,34 +147,61 @@ app.use('/api/products', productRoutes);
 app.use('/api/shipping', shippingAddressRoutes);
 app.use('/api/silver', silverRoutes);
 
-
-// ✅ Route تست ساده
-app.get('/', (req, res) => {
-  res.send('✅ Server is running');
+// Health Check
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
 });
 
-
-// هندل خطای 404
-app.use((req, res, next) => {
+// 404 Handler
+app.use((req, res) => {
   res.status(404).json({ message: 'Endpoint not found' });
 });
 
+// CSRF Error Handler
+app.use((err, req, res, next) => {
+  if (err.code === 'EBADCSRFTOKEN') {
+    return res.status(403).json({ message: 'توکن CSRF نامعتبر است' });
+  }
+  next(err);
+});
 
-// ✅ هندل خطاها
+// Validation Error Handler
+app.use((err, req, res, next) => {
+  if (err.name === 'ValidationError') {
+    return res.status(400).json({ 
+      message: 'خطای اعتبارسنجی',
+      errors: Object.values(err.errors).map(e => e.message)
+    });
+  }
+  next(err);
+});
+
+// Global Error Handler
 app.use((err, req, res, next) => {
   console.error('❌ Error:', err);
-  res.status(err.status || 500).json({ message: err.message || 'Internal Server Error' });
+  
+  const statusCode = err.status || 500;
+  const message = process.env.NODE_ENV === 'production' && statusCode === 500
+    ? 'خطای سرور'
+    : err.message;
+
+  res.status(statusCode).json({ 
+    message,
+    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
+  });
 });
 
-// ✅ راه‌اندازی سرور
+// Graceful Shutdown
+process.on('SIGTERM', () => {
+  console.log('👋 SIGTERM received, shutting down gracefully');
+  mongoose.connection.close(() => {
+    console.log('💤 MongoDB connection closed');
+    process.exit(0);
+  });
+});
+
+// راه‌اندازی سرور
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  console.log(`🟢 Server running on port ${PORT} in ${process.env.NODE_ENV || 'development'} mode`);
 });
-
-// اجرای اولیه
-// axios.post('http://localhost:5000/api/silver/force-update').catch(() => {});
-// هر ۶ ساعت یک بار
-// setInterval(() => {
-//   axios.post('http://localhost:5000/api/silver/force-update').catch(() => {});
-// }, 6 * 60 * 60 * 1000);

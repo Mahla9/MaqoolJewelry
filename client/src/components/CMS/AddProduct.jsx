@@ -1,142 +1,327 @@
-import React from 'react';
-import { useForm } from 'react-hook-form'
+import { useState } from 'react';
 import { useSendProduct } from '../../api/productsAPI';
-import { toast } from 'react-toastify'
 import { useSilverPrice } from '../../api/useSilverPrice';
+import { Button, Form, Input, message, Select, Tag, Upload } from 'antd';
+import { UploadOutlined } from '@ant-design/icons';
 
 function AddProduct() {
-    const {register, handleSubmit, formState: {errors}, reset} = useForm();
     const sendProduct = useSendProduct();
+    const [form] = Form.useForm();
+    
+    // State برای تصویر اصلی
+    const [mainImage, setMainImage] = useState(null);
+    
+    // State برای گالری
+    const [galleryFiles, setGalleryFiles] = useState([]);
 
-    const {data:silverPrice, isLoading, isError} = useSilverPrice()
+    const { data: silverPrice, isLoading, isError } = useSilverPrice();
 
-    const onSubmit = async (newProduct) => {
-        const productId = Date.now() ;
-        const formData = new FormData();
-        formData.append('productId', productId);
-        formData.append('title', newProduct.title);
-        formData.append('price', newProduct.price);
-        formData.append('description', newProduct.description);
-        formData.append('category', newProduct.category);
-        formData.append('stock', newProduct.stock);
-        formData.append('ringSize', newProduct.ringSize || '');
-        formData.append('metalType', newProduct.metalType || '');
-        formData.append('jewelleryType', newProduct.jewelleryType || '');
-        formData.append('jewellerySize', newProduct.jewellerySize || '');
-        formData.append('weight', newProduct.weight || '');
-
-        // فایل اصلی
-        if (newProduct.image && newProduct.image[0]) {
-            formData.append('image', newProduct.image[0]);
+      // Validation فرمت فایل
+    const validateImageFormat = (file) => {
+        const allowedFormats = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+        const isValidFormat = allowedFormats.includes(file.type);
+        
+        if (!isValidFormat) {
+            message.error('فقط فرمت‌های PNG, JPG, JPEG و WebP مجاز هستند!');
         }
+        
+        return isValidFormat;
+    };
+
+    // Validation حجم فایل
+    const validateImageSize = (file) => {
+        const maxSize = 5; // 5MB
+        const isValidSize = file.size / 1024 / 1024 < maxSize;
+        
+        if (!isValidSize) {
+            message.error(`حجم فایل نباید بیشتر از ${maxSize}MB باشد!`);
+        }
+        
+        return isValidSize;
+    };
+
+    // Handler برای تصویر اصلی
+    const handleMainImageChange = ({ file, fileList }) => {
+        if (fileList.length > 0) {
+            setMainImage(file.originFileObj || file);
+        } else {
+            setMainImage(null);
+        }
+    };
+
+    // Handler برای گالری
+    const handleGalleryChange = ({ fileList }) => {
+        const files = fileList.map(file => file.originFileObj || file);
+        setGalleryFiles(files);
+    };
+
+    
+    const onSubmit = async (values) => {
+        // Validation برای تصویر اصلی
+        if (!mainImage) {
+            message.error('لطفاً تصویر اصلی محصول را انتخاب کنید');
+            return;
+        }
+
+        const productId = Date.now();
+        const formData = new FormData();
+
+        // اطلاعات پایه
+        formData.append('productId', productId);
+        formData.append('title', values.title);
+        formData.append('description', values.description);
+        formData.append('category', values.category);
+        formData.append('stock', values.stock);
+        formData.append('silverWeight', values.silverWeight);
+        
+        // اطلاعات اختیاری
+        formData.append('stoneCost', values.stoneCost || 0);
+        formData.append('makingFee', values.makingFee || 0);
+        formData.append('ringSize', values.ringSize || '');
+        formData.append('metalType', values.metalType || '');
+        formData.append('jewelleryType', values.jewelleryType || '');
+        formData.append('jewellerySize', values.jewellerySize || '');
+
+        // محاسبه قیمت نهایی (اگر نیاز دارید)
+        // const totalPrice = (values.silverWeight * silverPrice) + (values.stoneFee || 0) + (values.makingFee || 0);
+        // formData.append('price', totalPrice);
+
+        // تصویر اصلی
+        formData.append('image', mainImage);
 
         // گالری
-        if (newProduct.gallery && newProduct.gallery.length > 0) {
-            Array.from(newProduct.gallery).forEach((file) => {
-              console.log('gallery:', newProduct.gallery);
-              console.log('gallery type:', typeof newProduct.gallery);
-              console.log('gallery instanceof FileList:', newProduct.gallery instanceof FileList);
-              formData.append('gallery', file);
+        if (galleryFiles.length > 0) {
+            galleryFiles.forEach((file) => {
+                formData.append('gallery', file);
             });
-          }
+        }
 
         try {
-          const res = await sendProduct.mutateAsync(formData);
-          const {message} = res.data;
-          toast.success(message);
-          reset();
+            const res = await sendProduct.mutateAsync(formData);
+            message.success(res.data.message || 'محصول با موفقیت اضافه شد');
+            
+            // Reset form و state ها
+            form.resetFields();
+            setMainImage(null);
+            setGalleryFiles([]);
+            
         } catch (error) {
-          const ErrMessage = error?.response?.data?.message || 'خطا در افزودن محصول';
-          console.error(ErrMessage);
-          toast.error(ErrMessage);
+            const errMessage = error?.response?.data?.message || 'خطا در افزودن محصول';
+            console.error('Error:', errMessage);
+            message.error(errMessage);
         }
-    }
+    };
 
-  return (
-    <div className='flex items-center flex-col gap-5' dir='rtl'>
-      
-      <h2 className='font-semibold text-navyBlue-100 text-xl'>افزودن محصول</h2>
-      <form onSubmit={handleSubmit(onSubmit)} className='flex flex-col w-full h-full gap-6'>
-        <input {...register('title', {required: 'پر کردن این فیلد الزامی است'})} type="text" placeholder="نام محصول" className="border border-slate-400 placeholder-shown:text-xs placeholder-shown:font-semibold p-2 mb-2 w-full rounded-xl" />
-        {errors.title && <p className='text-red-400 text-xs font-semibold'>{errors.title.message}</p>}
+    return (
+        <div className='flex items-center flex-col gap-5' dir='rtl'>
+            <h2 className='font-semibold text-navyBlue-100 text-xl'>افزودن محصول</h2>
+            
+            <Form 
+                form={form}
+                onFinish={onSubmit} 
+                layout="vertical"
+                className='w-full'
+            >
+                {/* نام محصول */}
+                <Form.Item 
+                    label="نام محصول" 
+                    name="title" 
+                    rules={[{ required: true, message: 'پر کردن این فیلد الزامی است' }]}
+                >
+                    <Input placeholder="نام محصول" />
+                </Form.Item>
 
-        <input {...register('price', {required: 'پر کردن این فیلد الزامی است'})} type="text" placeholder="قیمت محصول" className="border border-slate-400 placeholder-shown:text-xs placeholder-shown:font-semibold p-2 mb-2 w-full rounded-xl" />
-        {errors.price && <p className='text-red-400 text-xs font-semibold'>{errors.price.message}</p>}
+                {/* وزن نقره */}
+                <Form.Item 
+                    label="وزن نقره (گرم)" 
+                    name="silverWeight" 
+                    rules={[{ required: true, message: 'پر کردن این فیلد الزامی است' }]}
+                >
+                    <Input 
+                        type='number' 
+                        placeholder='مثال: 23.3' 
+                        step="0.01"
+                    />
+                </Form.Item>
 
-        <input type="text" disabled value={silverPrice ?? ''} className='border border-slate-300 h-10 rounded-xl'/>
-        {isError && <p className='text-red-400 text-xs font-semibold'>خطا در دریافت قیمت نقره</p>}
-        {isLoading && <p className='text-gray-400 text-xs font-semibold'>در حال بارگذاری قیمت یک انس نقره...</p>}
+                {/* بهای سنگ */}
+                <Form.Item 
+                    label='بهای سنگ/نگین (تومان)' 
+                    name='stoneFee'
+                >
+                    <Input type='number' placeholder="اختیاری" />
+                </Form.Item>
 
-        <textarea {...register('description', {required: 'پر کردن این فیلد الزامی است'})} rows={6} placeholder="توضیحات محصول" className="border border-slate-400 placeholder-shown:text-xs placeholder-shown:font-semibold p-2 mb-2 w-full rounded-xl" />
-        {errors.description && <p className='text-red-400 text-xs font-semibold'>{errors.description.message}</p>}
+                {/* اجرت کار */}
+                <Form.Item 
+                    label='اجرت کار (تومان)' 
+                    name='makingFee'
+                >
+                    <Input type='number' placeholder="اختیاری" />
+                </Form.Item>
 
-        <input {...register('stock')} type='number' placeholder='تعداد موجودی' className='w-[26%] md:w-[20%] border border-slate-400 placeholder-shown:text-xs placeholder-shown:font-semibold rounded-md px-4 py-2'/>
+                {/* قیمت نقره */}
+                <Form.Item label='قیمت یک انس نقره'>
+                    {isLoading ? (
+                        <Tag color="processing">در حال بارگذاری...</Tag>
+                    ) : isError ? (
+                        <Tag color="error">خطا در دریافت قیمت</Tag>
+                    ) : (
+                        <Tag color="blue" className='text-sm'>
+                            {silverPrice ? `${silverPrice.toLocaleString('fa-IR')} تومان` : 'نامشخص'}
+                        </Tag>
+                    )}
+                </Form.Item>
 
-        <input {...register('ringSize')} type='text' placeholder='سایز انگشتر' className='w-[26%] md:w-[20%] border border-slate-400 placeholder-shown:text-xs placeholder-shown:font-semibold rounded-md px-4 py-2'/>
+                {/* توضیحات */}
+                <Form.Item 
+                    label="توضیحات محصول" 
+                    name="description" 
+                    rules={[{ required: true, message: 'پر کردن این فیلد الزامی است' }]}
+                >
+                    <Input.TextArea 
+                        rows={6} 
+                        placeholder="توضیحات کامل محصول" 
+                    />
+                </Form.Item>
 
-        <input {...register('metalType')} type='text' placeholder='نوع فلز' className='w-[26%] md:w-[20%] border border-slate-400 placeholder-shown:text-xs placeholder-shown:font-semibold rounded-md px-4 py-2'/>
+                {/* موجودی */}
+                <Form.Item 
+                    label="تعداد موجودی" 
+                    name="stock" 
+                    rules={[{ required: true, message: 'پر کردن این فیلد الزامی است' }]}
+                >
+                    <Input 
+                        type='number' 
+                        placeholder='تعداد موجودی' 
+                        min={0}
+                    />
+                </Form.Item>
 
-        <input {...register('jewelleryType')} type='text' placeholder='نوع جواهر' className='w-[26%] md:w-[20%] border border-slate-400 placeholder-shown:text-xs placeholder-shown:font-semibold rounded-md px-4 py-2'/>
+                <div className='grid grid-cols-1 md:grid-cols-2 gap-4'>
+                    {/* سایز انگشتر */}
+                    <Form.Item 
+                        label="سایز انگشتر" 
+                        name="ringSize"
+                    >
+                        <Input placeholder='مثال: 18' />
+                    </Form.Item>
 
-        <input {...register('jewellerySize', {required: 'پر کردن این فیلد الزامی است'})} type='text' placeholder='سایز جواهر' className='w-[26%] md:w-[20%] border border-slate-400 placeholder-shown:text-xs placeholder-shown:font-semibold rounded-md px-4 py-2'/>
-        {errors.jewellerySize && <p className='text-red-400 text-xs font-semibold'>{errors.jewellerySize.message}</p>}
+                    {/* نوع فلز */}
+                    <Form.Item 
+                        label="نوع فلز" 
+                        name="metalType"
+                    >
+                        <Input placeholder='مثال: نقره 925' />
+                    </Form.Item>
 
-        <input {...register('weight', {required: 'پر کردن این فیلد الزامی است'})} type='text' placeholder='وزن' className='w-[26%] md:w-[20%] border border-slate-400 placeholder-shown:text-xs placeholder-shown:font-semibold rounded-md px-4 py-2'/>
-        {errors.weight && <p className='text-red-400 text-xs font-semibold'>{errors.weight.message}</p>}
+                    {/* نوع جواهر */}
+                    <Form.Item 
+                        label="نوع جواهر" 
+                        name="jewelleryType"
+                    >
+                        <Input placeholder='مثال: عقیق' />
+                    </Form.Item>
 
-        <div className='flex flex-col my-2'>
-          <label htmlFor="category" className='text-slate-500 text-sm font-semibold'>دسته بندی</label>
+                    {/* سایز جواهر */}
+                    <Form.Item 
+                        label="سایز جواهر" 
+                        name="jewellerySize"
+                    >
+                        <Input placeholder='اختیاری' />
+                    </Form.Item>
+                </div>
 
-          <select  {...register('category')} defaultValue='انگشتر مردانه' id="category" className='w-[26%] md:w-[20%] text-xs font-semibold border border-slate-400 px-4 py-2 rounded-md'>
-          <option value="انگشتر مردانه">انگشتر مردانه</option>
-          <option value="انگشتر زنانه">انگشتر زنانه</option>
-          <option value="گردنبند">گردنبند</option>
-          <option value="مدال">مدال</option>
-        </select>  
+                {/* دسته بندی */}
+                <Form.Item 
+                    label='دسته بندی' 
+                    name='category' 
+                    rules={[{ required: true, message: 'انتخاب دسته بندی الزامی است' }]}
+                >
+                    <Select placeholder="انتخاب کنید">
+                        <Select.Option value="انگشتر مردانه">انگشتر مردانه</Select.Option>
+                        <Select.Option value="انگشتر زنانه">انگشتر زنانه</Select.Option>
+                        <Select.Option value="گردنبند">گردنبند</Select.Option>
+                        <Select.Option value="مدال">مدال</Select.Option>
+                    </Select>
+                </Form.Item>
+
+                {/* تصویر اصلی */}
+                <Form.Item label='تصویر اصلی محصول' required>
+                    <Upload 
+                        accept="image/png,image/jpeg,image/jpg,image/webp"
+                        maxCount={1}
+                        listType="picture-card"
+                        beforeUpload={(file) => {
+                            const isValidFormat = validateImageFormat(file);
+                            const isValidSize = validateImageSize(file);
+                            
+                            if (isValidFormat && isValidSize) {
+                                return false;
+                            }
+                            return Upload.LIST_IGNORE;
+                        }}
+                        onChange={handleMainImageChange}
+                    >
+                        {!mainImage && (
+                            <div className="flex flex-col items-center">
+                                <UploadOutlined style={{ fontSize: '24px' }} />
+                                <div style={{ marginTop: 8 }}>انتخاب تصویر</div>
+                                <div style={{ fontSize: '12px', color: '#999' }}>
+                                    PNG, JPG, WebP (Max: 5MB)
+                                </div>
+                            </div>
+                        )}
+                    </Upload>
+                </Form.Item>
+
+                {/* گالری تصاویر */}
+                <Form.Item label='گالری تصاویر (حداکثر 3 تصویر)'>
+                    <Upload
+                        accept="image/png,image/jpeg,image/jpg,image/webp"
+                        listType='picture-card'
+                        maxCount={3}
+                        multiple
+                        beforeUpload={(file) => {
+                            const isValidFormat = validateImageFormat(file);
+                            const isValidSize = validateImageSize(file);
+                            
+                            if (isValidFormat && isValidSize) {
+                                return false;
+                            }
+                            return Upload.LIST_IGNORE;
+                        }}
+                        onChange={handleGalleryChange}
+                    >
+                        {galleryFiles.length < 3 && (
+                            <div className="flex flex-col items-center">
+                                <UploadOutlined style={{ fontSize: '24px' }} />
+                                <div style={{ marginTop: 8 }}>افزودن تصویر</div>
+                                <div style={{ fontSize: '12px', color: '#999' }}>
+                                    PNG, JPG, WebP (Max: 5MB)
+                                </div>
+                            </div>
+                        )}
+                    </Upload>
+                </Form.Item>
+
+                {/* دکمه ارسال */}
+                <Form.Item>
+                    <Button 
+                        type="primary" 
+                        htmlType="submit" 
+                        loading={sendProduct.isPending}
+                        disabled={sendProduct.isPending}
+                        block
+                        size="large"
+                        className='bg-navyBlue-100 hover:bg-navyBlue-200'
+                    >
+                        {sendProduct.isPending ? "در حال افزودن..." : "افزودن محصول"}
+                    </Button>
+                </Form.Item>
+            </Form>
         </div>
-
-        {/* بخش انتخاب یک فایل */}
-        <div>
-            <label
-            htmlFor="single-file"
-            className="w-[40%] md:w-[30%] text-xs font-semibold cursor-pointer border border-slate-400 rounded-xl h-10 flex items-center justify-center mb-2 bg-white"
-          >
-            انتخاب تصویر اصلی محصول
-          </label>
-          <input {...register('image', {required: 'پر کردن این فیلد الزامی است'})}
-            type="file"
-            id="single-file"
-            name='image'
-            accept="image/*"
-          />
-          {errors.image && <p className='text-red-400 text-xs font-semibold'>{errors.image.message}</p>}
-        </div>
-
-
-        {/* بخش انتخاب چندگانه تصویر */}
-        <div>
-            <label
-            htmlFor="multi-file"
-            className="w-[40%] md:w-[30%] text-xs font-semibold cursor-pointer border border-slate-400 rounded-xl h-10 flex items-center justify-center mb-2 bg-white"
-          >
-            انتخاب تصاویر برای گالری
-          </label>
-          <input {...register('gallery',)}
-            type="file"
-            id="multi-file"
-            name='gallery'
-            accept="image/*"
-            multiple
-          />
-          {errors.gallery && <p className='text-red-400 text-xs font-semibold'>{errors.gallery.message}</p>}
-        </div>
-        <button type="submit" className={`${sendProduct.isPending ? "bg-navyBlue-100/50": "bg-navyBlue-100"} text-white p-2 rounded-xl cursor-pointer transition-all duration-150 ease-in hover:bg-navyBlue-200/79`}>
-            {sendProduct.isPending && <div className='animate-spin w-6 h-6 rounded-full border-2 border-t-transparent border-white'></div>}
-            {sendProduct.isPending? "در حال افزودن..." : "افزودن محصول"}
-        </button>
-      </form>
-    </div>
-  )
+    );
 }
 
 export default AddProduct;

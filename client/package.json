@@ -10,8 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@ant-design/cssinjs": "^1.24.0",
     "@ant-design/v5-patch-for-react-19": "^1.0.3",
-    "@hookform/resolvers": "^5.0.1",
     "@tailwindcss/vite": "^4.1.5",
     "@tanstack/react-query": "^5.75.5",
     "antd": "^5.25.3",
@@ -20,12 +20,9 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-highlight-words": "^0.21.0",
-    "react-hook-form": "^7.56.1",
     "react-router-dom": "^7.5.3",
-    "react-toastify": "^11.0.5",
     "tailwindcss": "^4.0.17",
     "use-debounce": "^10.0.4",
-    "yup": "^1.6.1",
     "zustand": "^5.0.4"
   },
   "devDependencies": {

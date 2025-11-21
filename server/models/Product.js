@@ -6,21 +6,45 @@ const productSchema = new mongoose.Schema(
       type: String,
       required: true,
       unique: true,
+      index: true,
     },
     title: {
       type: String,
       required: true,
       trim: true,
+      maxlength: 200,
     },
     price: {
       type: Number,
       required: true,
       min: 0,
+      index: true,
     },
-    silverAtCreation: {
+    silverWeight: {
+      type: Number,
+      required: true,
+      min: 0.1,
+      max: 1000,
+    },
+    silverPriceAtCreation: {
       type: Number,
       required: true,
       min: 0
+    },
+    usdPriceAtCreation: {
+      type: Number,
+      required: true,
+      min: 0
+    },
+    makingFee: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    stoneCost: {
+      type: Number,
+      default: 0,
+      min: 0,
     },
     stock: {
       type: Number,
@@ -29,44 +53,53 @@ const productSchema = new mongoose.Schema(
     },
     image: {
       type: String,
-      required: true, // تصویر اصلی محصول
+      required: true,
     },
     gallery: {
-      type: [String], // آرایه‌ای از تصاویر
+      type: [String],
       default: [],
+      validate: [arr => arr.length <= 10, 'حداکثر 10 تصویر مجاز است']
     },
     description: {
       type: String,
       trim: true,
+      maxlength: 2000,
     },
     category: {
       type: String,
       required: true,
+      enum: ['انگشتر مردانه', 'انگشتر زنانه', 'گردنبند', 'مدال'],
+      index: true,
     },
     ringSize: {
       type: String,
-      required: false,
+      maxlength: 50,
     },
     metalType: {
       type: String,
-      required: false,
+      maxlength: 100,
     },
     jewelleryType: {
       type: String,
-      required: false,
+      maxlength: 100,
     },
     jewellerySize: {
       type: String,
-      required: false,
+      maxlength: 50,
     },
-    weight: {
-      type: String,
-      required: true,
-    },
+    isActive: {
+      type: Boolean,
+      default: true,
+      index: true,
+    }
   },
   {
-    timestamps: true, // اضافه کردن createdAt و updatedAt
+    timestamps: true,
   }
 );
+
+// Index ترکیبی برای جستجو
+productSchema.index({ title: 'text', description: 'text' });
+productSchema.index({ category: 1, price: 1 });
 
 export default mongoose.model('Product', productSchema);

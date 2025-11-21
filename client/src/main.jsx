@@ -5,7 +5,20 @@ import App from './App.jsx';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import '@ant-design/v5-patch-for-react-19';
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5,
+      gcTime: 1000 * 60 * 10, //same cacheTime
+      refetchOnWindowFocus: false,
+      refetchOnReconnect: false,
+      retry: 1,
+    },
+    mutations: {
+      retry: 1,
+    },
+  },
+});
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

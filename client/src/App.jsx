@@ -1,19 +1,20 @@
 import { createBrowserRouter, RouterProvider, Navigate } from 'react-router-dom';
-import { ToastContainer } from "react-toastify";
-import { useQuery } from '@tanstack/react-query';
 import Home from "./pages/Home";
-import Dashboard from './pages/Dashboard'
 import Auth from "./pages/Auth";
-import Cart from "./pages/Cart";
-import Cms from "./pages/Cms";
+
+import { lazy, Suspense } from 'react';
+
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Cart = lazy(() => import('./pages/Cart'));
+const Cms = lazy(() => import('./pages/Cms'));
+const ProductDetails = lazy(() => import('./pages/ProductDetails'));
+const Checkout = lazy(() => import('./pages/Checkout'));
+const AllProducts = lazy(() => import('./pages/AllProducts'));
 import ForgotPassword from "./pages/forgot-password/ForgotPassword";
 import VerifyCode from "./pages/forgot-password/VerifyCode";
 import SetNewPassword from "./pages/forgot-password/SetNewPassword";
 import VerifyForm from "./pages/VerifyForm";
 import useAuthStore from './store/useAuthStore';
-import AllProducts from "./pages/AllProducts";
-import ProductDetails from "./pages/ProductDetails";
-import Checkout from "./pages/Checkout";
 import OrderSuccess from "./pages/OrderSuccess";
 import Payment from "./pages/Payment";
 import useCartStore from './store/useCartStore';
@@ -22,24 +23,16 @@ import ContactUsPage from './pages/ContactUsPage';
 import Privacy from './pages/Privacy';
 import Rules from './pages/Rules';
 import NotFound from './pages/NotFound';
-import axios from './lib/axios';
+import useProfile from './api/useProfile';
+import { StyleProvider } from '@ant-design/cssinjs';
 
 const App = () => {
   const isLoggedIn = useAuthStore(state=>state.isLoggedIn);
-  const cart = useCartStore(state=>state.cart)
-  const user = useAuthStore(state => state.user);
+  const cart = useCartStore(state=>state.cart);
 
-   const { data: profile } = useQuery({
-    queryKey: ['profile'],
-    queryFn: async () => {
-      if (!user) return null;
-      const res = await axios.get('/user/profile');
-      return res.data.user;
-    },
-    enabled: !!user, // فقط اگر کاربر لاگین است
-    staleTime: 1000 * 60 * 10, // 10 دقیقه کش
-    retry: false,
-  });
+  const {data: profile, isError, isPending} = useProfile();
+  if(isError) console.log("Error fetching profile data");
+  if(isPending) console.log("Loading profile data...");
 
   const router = createBrowserRouter([
     {
@@ -115,11 +108,19 @@ const App = () => {
     }
   ]);
 
+  // Suspense wrapper
+const LoadingFallback = () => (
+  <div className="flex justify-center items-center h-screen">
+    <div className="animate-spin rounded-full h-12 w-12 border-4 border-t-transparent border-navyBlue-100"></div>
+  </div>
+);
+
   return (
-    <>
-      <ToastContainer position="top-center" rtl />
-      <RouterProvider router={router} />
-    </>
+    <StyleProvider layer={true}>
+      <Suspense fallback={<LoadingFallback />}>
+        <RouterProvider router={router} />
+      </Suspense>
+    </StyleProvider>
   );
 };
 

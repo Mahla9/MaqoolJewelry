@@ -1,12 +1,11 @@
-import React, { useEffect } from 'react';
 import useGetUsers from '../../api/useGetUsers';
 
 function ManageUser() {
   const { data, isLoading, isError } = useGetUsers();
 
-  useEffect(()=>{
-    console.log(data)
-  },[data])
+  // useEffect(()=>{
+  //   console.log(data)
+  // },[data])
   return (
     <div className='' >
       <h2 className='text-navyBlue-100 font-black text-2xl border-b border-slate-300 pb-6 mb-6'>لیست کاربران سایت</h2>
