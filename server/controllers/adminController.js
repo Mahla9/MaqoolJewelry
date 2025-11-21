@@ -27,7 +27,7 @@ export const validateProduct = [
   body('jewellerySize').optional().trim().isLength({ max: 50 }),
 ];
 
-// دریافت قیمت نقره از BRS API
+// دریافت قیمت نقره
 const fetchSilverPriceFromBRS = async () => {
   try {
     const response = await axios.get(process.env.BRS_URL, {
@@ -48,10 +48,10 @@ const fetchSilverPriceFromBRS = async () => {
   }
 };
 
-// دریافت قیمت دلار از BRS API
+// دریافت قیمت دلار
 const fetchUSDToTomanFromBRS = async () => {
   try {
-    const response = await axios.get(process.env.BRS_URL, {
+    const response = await axios.get(process.env.BRS_USD_URL, {
       params: { key: process.env.BRS_API_KEY },
       timeout: 20000,
     });
@@ -69,7 +69,7 @@ const fetchUSDToTomanFromBRS = async () => {
   }
 };
 
-// محاسبه قیمت محصول (مشابه کد PHP)
+// محاسبه قیمت محصول
 const calculateProductPrice = (silverWeight, silverPricePerGram, makingFee, stoneCost) => {
   const silverCost = silverWeight * silverPricePerGram;
   const totalPrice = silverCost + makingFee + stoneCost;

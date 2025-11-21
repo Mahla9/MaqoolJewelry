@@ -21,6 +21,7 @@ import productRoutes from './routes/productRoutes.js';
 import adminRoutes from "./routes/adminRoutes.js";
 import shippingAddressRoutes from './routes/shippingAddressRoutes.js';
 import silverRoutes from './routes/silverRoutes.js';
+import { startPriceUpdateCron } from './services/priceUpdateCron.js';
 
 const app = express();
 
@@ -33,7 +34,11 @@ mongoose
     serverSelectionTimeoutMS: 5000,
     socketTimeoutMS: 45000,
   })
-  .then(() => console.log('✅ MongoDB connected'))
+  .then(() => {
+    console.log('✅ MongoDB connected');
+    // راه‌اندازی Cron Job بعد از اتصال به دیتابیس
+    startPriceUpdateCron();
+  })
   .catch((err) => {
     console.error('❌ MongoDB connection error:', err);
     process.exit(1);
